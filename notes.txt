@@ -1,0 +1,10 @@
+> install.packages("plotly")
+> library(plotly)
+
+> summary(vg_dataset)
+> str(vg_dataset)
+> vg_dataset$Year <- as.Date(vg_dataset$Year, format = "%Y")
+> format(as.Date(vg_dataset$Year, format="%Y/%d/%m"),"%Y")
+> vg_dataset$Year <- format(as.Date(vg_dataset$Year, format="%Y/%d/%m"),"%Y")
+
+> ggplot(vg_dataset, aes(x=vg_dataset$Year, y=vg_dataset$Rank))+geom_point()
