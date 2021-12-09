@@ -1,10 +1,148 @@
-> install.packages("plotly")
-> library(plotly)
+ install.packages("plotly")
+ library(plotly)
 
-> summary(vg_dataset)
-> str(vg_dataset)
-> vg_dataset$Year <- as.Date(vg_dataset$Year, format = "%Y")
-> format(as.Date(vg_dataset$Year, format="%Y/%d/%m"),"%Y")
-> vg_dataset$Year <- format(as.Date(vg_dataset$Year, format="%Y/%d/%m"),"%Y")
+ vg_dataset <- read.csv(file = "vgsales.csv", stringsAsFactors = FALSE)
 
-> ggplot(vg_dataset, aes(x=vg_dataset$Year, y=vg_dataset$Rank))+geom_point()
+#adding one more row to have a properly Index as "rank" col is not as consistent
+ vg_dataset$Index <- 1:nrow(vg_dataset)
+#organising dataset's on R Studio, staring from Index and so on.
+ vg_dataset <- vg_dataset[,c(12,1,2,3,4,5,6,7,8,9,10,11)]
+
+#Starting Cleaning and Normalizing the data
+#first run some checkups to indentify NA values in the dataset
+complete.cases(vg_dataset)
+ summary(vg_dataset)
+ str(vg_dataset)
+
+#here we wan to take an action on Year's column:  
+#First a basic histogram to see the data,
+ hist(vg_dataset$Year)
+#Second transforming the 0 data into NA
+ vg_dataset$Year[vg_dataset$Year == 0] <- NA
+#Third we copies NA items to another dataset (NAs_vg_dataset)
+ NAs_vg_dataset <- subset(vg_dataset, is.na(vg_dataset$Year))
+#Then remove those NAs from main dataset
+ vg_dataset <- vg_dataset[complete.cases(vg_dataset),]
+#Afterwards, we copy outliers to a outliers dataset, and remove them from the main dataset
+ outliers_vg_dataset <- vg_dataset[!(vg_dataset$Year > 1979 & vg_dataset$Year < 2017),]
+ vg_dataset <- vg_dataset[vg_dataset$Year > 1979 & vg_dataset$Year < 2017,]
+
+
+
+
+#redefining column Year as numeric and trying to show it as 4 digits
+ vg_dataset$Year <- as.numeric(format(vg_dataset$Year, '%Y'))  # This works
+	# dont need that > vg_dataset$Year <- as.Date(vg_dataset$Year, format = "%Y")
+	# dont need that > format(as.Date(vg_dataset$Year, format="%Y/%d/%m"),"%Y")
+	# dont need that > vg_dataset$Year <- format(as.Date(vg_dataset$Year, format="%Y/%d/%m"),"%Y")
+
+
+
+#----Min-Max Normalization----
+ ggplot(vg_dataset, aes( x = NA_Sales, y = EU_Sales )) + geom_point()
+ normaData <- function(x){
+     return((x - min(x)) / (max(x) - min(x)))
+ }
+ vg_dataset$NA_Sales_Norm <- normaData(vg_dataset$NA_Sales)
+ vg_dataset$EU_Sales_Norm <- normaData(vg_dataset$EU_Sales)
+ vg_dataset$JP_Sales_Norm <- normaData(vg_dataset$JP_Sales)
+ vg_dataset$Other_Sales_Norm <- normaData(vg_dataset$Other_Sales)
+ vg_dataset$Global_Sales_Norm <- normaData(vg_dataset$Global_Sales)
+ ggplot(vg_dataset, aes( x = NA_Sales_Norm, y = EU_Sales_Norm )) + geom_point()
+#------------------------------
+
+
+
+#----Z Score----
+ #Z-Score
+ vg_dataset$NA_Sales_Scaled <- scale(vg_dataset$NA_Sales)
+ vg_dataset$EU_Sales_Scaled <- scale(vg_dataset$EU_Sales)
+ vg_dataset$JP_Sales_Scaled <- scale(vg_dataset$JP_Sales)
+ vg_dataset$Other_Sales_Scaled <- scale(vg_dataset$Other_Sales)
+ vg_dataset$Global_Sales_Scaled <- scale(vg_dataset$Global_Sales)
+ ggplot(vg_dataset, aes( x = NA_Sales_Scaled, y = EU_Sales_Scaled )) + geom_point()
+ ggplot(vg_dataset, aes( x = EU_Sales_Scaled, y = JP_Sales_Scaled )) + geom_point()
+#----------------
+
+
+
+#----Robust Scaler----
+> #Robust Scaler
+> robust_scalar<- function(x){
++     (x- median(x)) / (quantile(x, probs = .75) - 
++                           quantile(x, probs = .25))
++     }
+#creating variables
+> vg_dataset$NA_Sales_RobustS <- robust_scalar(vg_dataset$NA_Sales)
+> vg_dataset$EU_Sales_RobustS <- robust_scalar(vg_dataset$EU_Sales)
+> vg_dataset$JP_Sales_RobustS <- robust_scalar(vg_dataset$JP_Sales)
+> vg_dataset$Other_Sales_RobustS <- robust_scalar(vg_dataset$Other_Sales)
+> vg_dataset$Global_Sales_RobustS <- robust_scalar(vg_dataset$Global_Sales)
+> ggplot(vg_dataset, aes( x = EU_Sales_RobustS, y = JP_Sales_RobustS )) + geom_point()
+#---------------------
+
+
+#----Correlation data----
+corr_data <- subset(vg_dataset, select = c("NA_Sales", "EU_Sales", "JP_Sales", "Other_Sales", "Global_Sales"))
+view(corr_data)
+cor(corr_data)
+cor.test(corr_data)
+cor.test(corr_data$NA_Sales, corr_data$EU_Sales, method = "pearson")
+cor.test(corr_data$NA_Sales, corr_data$EU_Sales, method = "kendall")
+m_corr_data <- cor(corr_data)
+
+#corrplot
+install.packages("corrplot")
+m_corr_data <- cor(corr_data)
+corrplot(m_corr_data)
+corrplot(m_corr_data, method = "number", type = "upper")
+#------------------------
+
+
+#----Scatter, Line, HeatMap----
+library(ggplot2)
+
+#Scatter Plot
+	#Scatterplot with basic line, visualizing North America Sales and Japan Sales, in Robust Scale.
+	ggplot(vg_dataset, aes(x= NA_Sales_RobustS, y = JP_Sales_RobustS)) + geom_point() + geom_abline(aes(intercept= 0, slope = 2), colour = "red", linetype = 6)
+	# Smoother Line Scatterplot visualizing North America Sales and Japan Sales, in Robust Scale.
+	ggplot(vg_dataset, aes(x= NA_Sales_RobustS, y = JP_Sales_RobustS)) + geom_point() + geom_smooth(formula = y ~ poly(x,2), method = "lm")
+
+
+#Line Plot 
+#variable for colors
+colors <- c("Europe Sales" = "green", "Japan Sales" = "orange")
+	#Line plot analysing Europe and Japan Sales against Global Sales, in Z-score Scale
+	ggplot(vg_dataset)+
+	geom_line( mapping = aes(x = Global_Sales_Scaled, y = JP_Sales_Scaled, color = "Japan Sales")) +
+    geom_point( mapping = aes(x = Global_Sales_Scaled, y = JP_Sales_Scaled, color = "Japan Sales")) +
+    geom_line( mapping = aes(x = Global_Sales_Scaled, y = EU_Sales_Scaled, color = "Europe Sales")) +
+    geom_point( mapping = aes(x = Global_Sales_Scaled, y = EU_Sales_Scaled, color = "Europe Sales"))+
+    labs(x = "Global Sales (Scaled)", y = "Japan Sales, Europe Sales (Scaled)", color = "Legend", title = "Line Plot comparing Europe and Japan sales against Global sales (Scaled)")+
+	theme( legend.position = c(.71, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6))+
+    scale_color_manual(name = "Colors",values = colors)
+	
+	#Line plot analysing Europe and Japan Sales against Global Sales, in Robust Scalar
+	ggplot(vg_dataset)+geom_line( mapping = aes(x = Global_Sales_RobustS, y = JP_Sales_RobustS, color = "Japan Sales")) +
+    geom_point( mapping = aes(x = Global_Sales_RobustS, y = JP_Sales_RobustS, color = "Japan Sales")) +
+    geom_line( mapping = aes(x = Global_Sales_RobustS, y = EU_Sales_RobustS, color = "Europe Sales")) +
+    geom_point( mapping = aes(x = Global_Sales_RobustS, y = EU_Sales_RobustS, color = "Europe Sales"))+
+    labs(x = "Global Sales (Robust Scalar)", y = "Japan Sales, Europe Sales (Robust Scalar)", color = "Legend", title = "Line Plot comparing Europe and Japan sales against Global sales (Robust Scalar)")+
+	theme( legend.position = c(.71, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6))+
+    scale_color_manual(name = "Colors",values = colors)
+
+#HeatMap
+> install.packages("reshape")
+
+scale_data <- subset(vg_dataset, select = c("NA_Sales_Scaled", "EU_Sales_Scaled", "JP_Sales_Scaled", "Other_Sales_Scaled", "Global_Sales_Scaled"))
+robust_data <- subset(vg_dataset, select = c("NA_Sales_RobustS", "EU_Sales_RobustS", "JP_Sales_RobustS", "Other_Sales_RobustS", "Global_Sales_RobustS"))	
+
+color_heatmap <- colorRampPalette(c("cyan", "deeppink3"))
+heatmap(as.matrix(corr_data[,-1]), Rowv = NA, Colv = NA, col = color_heatmap(100))
+
